@@ -1,12 +1,124 @@
 # Port notes — PhotoCraft on Android
 
 Upstream: [`storytold/photocraft`](https://github.com/storytold/photocraft) @
-`7a6058e6b4a5dbb725e75e97f7ee019d2bfb7f0f` (v0.7.0)
-Published APK: `photocraft-0.7.0-arm64-v8a-fonts-keys.apk`
+`b8c3f3aa8e2918032cadc0e042664414a03be333` (v0.17.0)
+Published APK: `photocraft-0.7.0-arm64-v8a-fonts-keys.apk` (the v0.1.1 release, built from v0.7.0)
 
 This is the edit log for the port: what was wrong, why, what changed, and how far the change was
 checked. Each fix below was found by running the app on an Android tablet and observing the failure,
 not by reading the code and guessing.
+
+## 2026-10-30 — Crash recovery wired (`recovery_services`)
+
+PhotoCraft's desktop shell builds its `Services` from `recovery_services(dir)`, which provides
+`autosave`, `autosave_results`, `flush_autosaves`, `discard_autosave`, `recover` and
+`adopt_autosave` against a `RecoveryStore` in the app's data directory. The Android shell did
+not, so crash recovery was unavailable. The port now calls the same builder with
+`internal_data_path()`, so crash-recovery autosaves land in the app's own directory and can be
+recovered at launch like on the desktop. Preferences are already persisted as they change
+through `Services::save_prefs`, so no suspend flush is needed there.
+
+## 2026-10-30 — Trackpad wheel + pen hover (`vendor/winit`)
+
+This port previously used the git winit, whose Android backend dropped `MotionAction::Scroll`
+and `MotionAction::HoverMove`. It now vendors the same patched winit the WordCraft and
+DeckCraft ports ship (copied into `vendor/winit/`, with `Cargo.toml` resolving winit from
+it), so the backend forwards those events. The `Cargo.toml` change joins this port's patch
+(3 tracked files).
+
+## 2026-10-30 — Open-with and share intents (`src/intents.rs`)
+
+**The complaint:** an image tapped in a file manager, or shared from another app, never reached
+PhotoCraft; and there was no way to hand the current image to another app.
+
+`src/intents.rs` covers the half that does not need `startActivityForResult`:
+
+- **Incoming `ACTION_VIEW`** — the launching URI is read at startup and copied out of a
+  `content://` URI into the cache directory; the shell opens it on its first frame (`open_path`).
+- **Incoming `ACTION_SEND`** — `EXTRA_TEXT` and `EXTRA_STREAM` are handled the same way.
+- **Outgoing `ACTION_SEND`** — `intents::share_text` starts a chooser; `share_file` is provided but
+  needs a `FileProvider` entry to work on Android 7+.
+
+The launching intent is read in `android_main` and consumed once in `Shell::logic`.
+
+**Scope:** opening a file handed to the app, and sharing text. SAF pickers remain deferred (no
+`startActivityForResult` in `android-activity` 0.6.1); the in-app picker is still the way to open
+or save.
+
+**Checked:** the module's host test passes, the crate compiles for `aarch64-linux-android`, and the
+host suite is 15/15. The JNI intent path has not run on a device.
+
+## 2026-10-30 — The system clipboard (`src/clipboard.rs`)
+
+**The complaint:** text could not be copied into or out of the app — text layers, layer names and
+the export/import paths all had a dead clipboard.
+
+Two causes, both fixed here:
+
+- **winit's Android backend has no clipboard**, so `egui-winit` fell back to its in-app simulated
+  clipboard; nothing crossed the app boundary.
+- **The backend never reports modifiers** (§5), and `egui-winit` decides Ctrl+C/X/V is a clipboard
+  shortcut from its own modifier state. On Android the three keys arrived as ordinary `Event::Key`
+  presses, so `Event::Copy`/`Cut`/`Paste` were never produced.
+
+`src/clipboard.rs` supplies:
+
+- `install(&app)` — this thread's Activity handle, captured before `run_native`.
+- `shortcuts(raw)` — in `raw_input_hook`, after the modifier bridge: a plain Ctrl+C/X/V becomes
+  `Event::Copy`/`Cut`/`Paste` and the press is consumed, as on the desktop. Ctrl+V reads the
+  **system** clipboard and pushes nothing when it is empty. Ctrl+Shift (the app's Copy Merged) and
+  Ctrl+Alt (Paste Special) are left alone.
+- `publish(ctx)` — after the app's `ui`: every `OutputCommand::CopyText` this frame is written with
+  `ClipData.newPlainText` + `setPrimaryClip`, and left in the command list so egui-winit's in-app
+  copy still happens.
+- `text()` — the read half, used by `shortcuts`.
+
+The JNI side is `ClipboardManager`/`ClipData` directly. A read Android refuses (Android 10+ allows
+reads only while the app is focused) is logged and cleared, and answers "nothing".
+
+**Scope:** plain text. The image clipboard (`Services::clipboard_set_image` / `clipboard_get_image`)
+is still unset on Android, so *Copy Merged* to another app and pasting a picture copied elsewhere
+remain out of scope; this change is about text.
+
+**Checked:** eight unit tests pass on the host, and the crate compiles for `aarch64-linux-android`.
+The JNI path has not run on a device — none was connected for this build.
+
+## 0. 2026-10-28 — The port was re-pinned to upstream v0.17.0
+
+The port was re-pointed from upstream `0.7.0` (`7a6058e`) to `0.17.0` (`b8c3f3aa8`) so the APK
+carries the current upstream rather than a ten-release-old one. Both upstream files this port
+patches were re-derived against the new tree — neither of the old hunks applied as written, and
+the patch was rebuilt from the new base rather than forced onto it.
+
+**What changed upstream, and what the port had to do about it:**
+
+- **`crates/text/src/fonts.rs` — the font scan.** Upstream `0.7.0` had no way for a host to add a
+  font folder, and no Android folders in the scan at all. The port added `EXTRA_FONT_DIRS` and
+  `set_extra_font_dirs`, plus Android's own `/system/fonts`, `/product/fonts`, `/system_ext/fonts`
+  and `/vendor/fonts`. Upstream has since grown the same idea — but not the same seam, and not the
+  Android folders — so the port's version of it is still needed and is still a port-only change.
+- **`crates/ui-egui/Cargo.toml` — the screen-reader feature.** `eframe` `compile_error!`s on
+  `accesskit` together with `android-native-activity`, because egui's accesskit integration on
+  Android goes through the GameActivity backend while this packages NativeActivity. Upstream still
+  enables `accesskit` unconditionally, so the port splits the declaration: accesskit on every
+  target but Android, everything else everywhere.
+
+**What the shell crate had to adapt to** (upstream `0.7.0` → `0.17.0`):
+
+- `Services::import` now takes the whole `photocraft_io::ImportOptions` instead of a bare
+  `max_svg_group_depth: usize`, because the importer grew a second option (the raw demosaic
+  method). The shell passes the options straight through, exactly as the desktop shell does.
+- `FileDialogRequest` grew a `Folder { initial_dir }` variant. The in-app picker now answers it:
+  it browses folders only, and the answer is the folder the user is in (`FileDialogAnswer::FolderTo`).
+- The `suggested` field of the picker's own `Pending` struct was dead — the Save dialog's name is
+  carried by `Shared::name` — and was removed rather than left to warn.
+
+**Verified:** `cargo check -p photocraft-android --target aarch64-linux-android` exits 0 against
+v0.17.0; the patch applies cleanly to a pristine `v0.17.0` checkout (`git apply --check`), and a
+tree assembled from that patch plus this repository's shell crate is byte-identical to the tree the
+APK was built from.
+
+---
 
 ## 1. The shell crate — `apps/photocraft-android/`
 

@@ -72,13 +72,20 @@ struct Pending {
     request: FileDialogRequest,
     multiple: bool,
     extensions: Option<Vec<String>>,
-    suggested: Option<String>,
+    /// The dialog asks for a folder, not a file: the answer is the folder the user is in.
+    folder: bool,
     reply: Option<FileDialogReply>,
 }
 
 impl Default for Pending {
     fn default() -> Self {
-        Self { request: FileDialogRequest::Open { multiple: false, initial_dir: None, extensions: None }, multiple: false, extensions: None, suggested: None, reply: None }
+        Self {
+            request: FileDialogRequest::Open { multiple: false, initial_dir: None, extensions: None },
+            multiple: false,
+            extensions: None,
+            folder: false,
+            reply: None,
+        }
     }
 }
 
@@ -90,11 +97,13 @@ pub fn channel() -> Rc<RefCell<Shared>> {
 /// The `FileDialogFn` body: queue the request and return immediately.
 pub fn request(shared: &Rc<RefCell<Shared>>, request: FileDialogRequest, reply: FileDialogReply) {
     let mut s = shared.borrow_mut();
-    let (multiple, extensions, suggested) = match &request {
-        FileDialogRequest::Open { multiple, extensions, .. } => (*multiple, extensions.clone(), None),
-        FileDialogRequest::Save { suggested } => (false, None, Some(suggested.clone())),
+    let (multiple, extensions) = match &request {
+        FileDialogRequest::Open { multiple, extensions, .. } => (*multiple, extensions.clone()),
+        FileDialogRequest::Save { .. } => (false, None),
+        FileDialogRequest::Folder { .. } => (false, None),
     };
-    s.pending = Some(Pending { request, multiple, extensions, suggested, reply: Some(reply) });
+    let folder = matches!(request, FileDialogRequest::Folder { .. });
+    s.pending = Some(Pending { request, multiple, extensions, folder, reply: Some(reply) });
     s.picked.clear();
     s.started = false;
     s.note = None;
@@ -236,6 +245,7 @@ pub fn draw(ctx: &egui::Context, shared: &Rc<RefCell<Shared>>) {
         s.started = true;
         let initial = match s.pending.as_ref().map(|p| &p.request) {
             Some(FileDialogRequest::Open { initial_dir: Some(d), .. }) if readable(Path::new(d)) => Some(PathBuf::from(d)),
+            Some(FileDialogRequest::Folder { initial_dir: Some(d) }) if readable(Path::new(d)) => Some(PathBuf::from(d)),
             Some(FileDialogRequest::Save { suggested }) => {
                 let p = PathBuf::from(suggested);
                 if let Some(name) = p.file_name() {
@@ -252,12 +262,16 @@ pub fn draw(ctx: &egui::Context, shared: &Rc<RefCell<Shared>>) {
     }
 
     let save = is_save(&s);
-    let title = if save { "Save As — Android" } else { "Open — Android" };
+    let folder = s.pending.as_ref().is_some_and(|p| p.folder);
+    let title = if save { "Save As — Android" } else if folder { "Choose Folder — Android" } else { "Open — Android" };
     let mut answer: Option<Option<FileDialogAnswer>> = None;
     let mut navigate: Option<PathBuf> = None;
 
     let dir = s.dir.clone();
-    let listing = entries(&dir, s.pending.as_ref().and_then(|p| p.extensions.as_ref()));
+    // A folder dialog lists folders only: an empty extension list matches no file.
+    let no_files: Vec<String> = Vec::new();
+    let filter: Option<&Vec<String>> = if folder { Some(&no_files) } else { s.pending.as_ref().and_then(|p| p.extensions.as_ref()) };
+    let listing = entries(&dir, filter);
 
     egui::Window::new(title)
         .collapsible(false)
@@ -338,6 +352,8 @@ pub fn draw(ctx: &egui::Context, shared: &Rc<RefCell<Shared>>) {
                         if ui.button(label).clicked() {
                             if save {
                                 s.name = file_label(f);
+                            } else if folder {
+                                // A file is not a folder: the answer is the folder being browsed.
                             } else if s.pending.as_ref().is_some_and(|p| p.multiple) {
                                 if chosen {
                                     s.picked.retain(|p| p != f);
@@ -354,7 +370,11 @@ pub fn draw(ctx: &egui::Context, shared: &Rc<RefCell<Shared>>) {
 
             ui.separator();
             ui.horizontal(|ui| {
-                if save {
+                if folder {
+                    if ui.button("Choose this folder").clicked() {
+                        answer = Some(Some(FileDialogAnswer::FolderTo(dir.to_string_lossy().to_string())));
+                    }
+                } else if save {
                     ui.label("File name:");
                     ui.add(egui::TextEdit::singleline(&mut s.name).desired_width(320.0));
                     if ui.button("Save").clicked() {

@@ -1,9 +1,19 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index 720b16776..ccc083aed 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -198,4 +198,4 @@ egui_system_font_provider = { git = "https://github.com/storytold/egui.git", rev
+ eframe = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
+ egui_demo_lib = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
+ egui_inspection = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
+-winit = { git = "https://github.com/storytold/winit.git", rev = "a517b3846ee8457d84ee4975110bfda6797c44dc" }
++winit = { path = "vendor/winit" }
 diff --git a/crates/text/src/fonts.rs b/crates/text/src/fonts.rs
-index a0cd5b8..9418e6c 100644
+index 416ae7834..6161c147d 100644
 --- a/crates/text/src/fonts.rs
 +++ b/crates/text/src/fonts.rs
-@@ -546,6 +546,19 @@ pub(crate) fn collect_font_files(dir: &std::path::Path, depth: u32, out: &mut Ve
-     }
+@@ -963,6 +963,19 @@ fn font_files_of(collection: &mut Collection) -> Vec<std::path::PathBuf> {
+     files
  }
  
 +/// Extra font directories a shell registers for a platform whose fonts the scan cannot find on
@@ -22,7 +32,7 @@ index a0cd5b8..9418e6c 100644
  #[cfg(not(target_arch = "wasm32"))]
  pub(crate) fn system_font_dirs() -> Vec<std::path::PathBuf> {
      use std::path::PathBuf;
-@@ -578,6 +591,20 @@ pub(crate) fn system_font_dirs() -> Vec<std::path::PathBuf> {
+@@ -995,6 +1008,20 @@ pub(crate) fn system_font_dirs() -> Vec<std::path::PathBuf> {
              v.push(h.join(".fonts"));
          }
      }
@@ -44,21 +54,21 @@ index a0cd5b8..9418e6c 100644
  }
  
 diff --git a/crates/ui-egui/Cargo.toml b/crates/ui-egui/Cargo.toml
-index a9af622..51f36f5 100644
+index c95da851e..0e4b6d353 100644
 --- a/crates/ui-egui/Cargo.toml
 +++ b/crates/ui-egui/Cargo.toml
-@@ -30,7 +30,7 @@ photocraft-format = { workspace = true }
+@@ -31,7 +31,7 @@ photocraft-format = { workspace = true }
  photocraft-codecs = { workspace = true }
  egui = { workspace = true }
- egui_extras = { version = "0.36", default-features = false, features = ["svg"] }
--eframe = { workspace = true, features = ["default_fonts", "wgpu", "accesskit"] }
-+eframe = { workspace = true, features = ["default_fonts", "wgpu"] }
+ egui_extras = { version = "0.37", default-features = false, features = ["svg"] }
+-eframe = { workspace = true, features = ["wgpu", "accesskit", "clipboard"] }
++eframe = { workspace = true, features = ["wgpu", "clipboard"] }
  serde = { workspace = true }
  serde_json = { workspace = true }
  log = { workspace = true }
-@@ -38,6 +38,15 @@ base64 = "0.22"
- # Inflating the translation catalogs, stored deflated (build.rs); already linked through photocraft-io.
+@@ -42,6 +42,15 @@ base64 = "0.23"
  flate2 = { workspace = true }
+ web-time = { workspace = true }
  
 +# Screen-reader support (accesskit) is desktop-only. eframe rejects the feature
 +# combination on Android — `compile_error!("`accesskit` feature is only
@@ -70,5 +80,5 @@ index a9af622..51f36f5 100644
 +eframe = { workspace = true, features = ["accesskit"] }
 +
  [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
- rayon = { workspace = true }
- # Safe native UI-language APIs (Windows/macOS); no subprocess or web dependency.
+ # Floating panels open in their own OS windows on the desktop; the web keeps them in the page.
+ craft-ui = { workspace = true, features = ["native-windows"] }

@@ -23,6 +23,10 @@ default = ["heif"]
 heif = ["photocraft-codecs/heif"]
 
 [dependencies]
+# The system clipboard (`src/clipboard.rs`) is a JNI call to `ClipboardManager`; jni 0.22 is
+# the version android-activity itself depends on, so this unifies rather than compiling a second
+# layer.
+jni = "0.22"
 photocraft-doc = { workspace = true }
 photocraft-engine = { workspace = true }
 photocraft-ui-egui = { workspace = true }

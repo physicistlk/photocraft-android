@@ -2,7 +2,7 @@
 
 ## Upstream
 
-**PhotoCraft** — <https://github.com/storytold/photocraft> — pinned here at `7a6058e6b4a5dbb725e75e97f7ee019d2bfb7f0f`
+**PhotoCraft** — <https://github.com/storytold/photocraft> — pinned here at `b8c3f3aa8e2918032cadc0e042664414a03be333` (v0.17.0)
 (version `0.7.0`).
 
 Upstream is dual-licensed **Apache-2.0 OR MIT**. Both licence texts are reproduced in this

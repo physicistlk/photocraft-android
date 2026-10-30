@@ -43,15 +43,18 @@
 //! registry, the CPU compositor and the wgpu GPU canvas are all
 //! platform-neutral.
 
+use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use photocraft_doc::Document;
 use photocraft_engine::Session;
-use photocraft_ui_egui::{ExportSettings, PhotocraftApp, Services};
+use photocraft_ui_egui::{ExportSettings, PhotocraftApp, Recoverable, Services};
 
+mod clipboard;
 mod file_picker;
+mod intents;
 mod modifiers;
 
 /// The app's private data directory, captured in `android_main` before any
@@ -116,8 +119,8 @@ fn save_file(
 fn android_services() -> Services {
     Services {
         import: Some(Box::new(
-            |name: &str, bytes: &[u8], max_svg_group_depth: usize| {
-                photocraft_io::import_with_svg_group_depth(name, bytes, max_svg_group_depth)
+            |name: &str, bytes: &[u8], opts: &photocraft_io::ImportOptions| {
+                photocraft_io::import_with_options(name, bytes, opts)
                     .map(|r| (r.document, r.warnings))
                     .map_err(|e| e.to_string())
             },
@@ -236,6 +239,10 @@ pub fn android_main(app: winit::platform::android::activity::AndroidApp) {
         .unwrap_or_else(|| PathBuf::from("."));
     let _ = std::fs::create_dir_all(&data_dir);
     let _ = DATA_DIR.set(data_dir.clone());
+    // The system clipboard goes through the same Activity handle as the rest of the
+    // platform (see `clipboard`).
+    clipboard::install(&app);
+    intents::install(&app);
     // The app's external files directory: always readable and writable with no
     // permission, so the picker can fall back to it for both open and save.
     if let Some(ext) = app.external_data_path() {
@@ -287,7 +294,7 @@ pub fn android_main(app: winit::platform::android::activity::AndroidApp) {
             } else {
                 log::warn!("no wgpu render state; the canvas will composite on the CPU");
             }
-            Ok(Box::new(Shell { inner: app, modifiers: modifiers::Tracked::default(), shared }))
+            Ok(Box::new(Shell { inner: app, modifiers: modifiers::Tracked::default(), pending_launch: intents::launch(), shared }))
         }),
     );
 
@@ -306,11 +313,21 @@ struct Shell {
     inner: PhotocraftApp,
     /// Modifier keys folded back into the frame's events; Android reports none (see `modifiers`).
     modifiers: modifiers::Tracked,
+    pending_launch: Option<intents::LaunchIntent>,
     shared: Rc<std::cell::RefCell<file_picker::Shared>>,
 }
 
 impl eframe::App for Shell {
     fn logic(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        if let Some(launch) = self.pending_launch.take() {
+            match launch {
+                intents::LaunchIntent::OpenFile(path) => { let _ = self.inner.open_path(path.to_string_lossy().as_ref()); }
+                intents::LaunchIntent::ImportText(text) => {
+                    let path = std::env::temp_dir().join("shared.txt");
+                    if std::fs::write(&path, text).is_ok() { let _ = self.inner.open_path(path.to_string_lossy().as_ref()); }
+                }
+            }
+        }
         eframe::App::logic(&mut self.inner, ctx, frame);
     }
 
@@ -322,7 +339,18 @@ impl eframe::App for Shell {
         // Before the app's own hook, so it sees the frame a desktop backend would have
         // produced. Android's winit never sends `ModifiersChanged`, so without this every
         // Ctrl shortcut, Shift+click and Alt keytip is dead (see `modifiers`).
+        for event in &mut raw.events {
+            if let egui::Event::Key { key, .. } = event
+                && *key == egui::Key::BrowserBack
+            {
+                *key = egui::Key::Escape;
+            }
+        }
         self.modifiers.apply(raw);
+        // Then the clipboard keys: egui-winit could not turn them into Copy/Cut/Paste
+        // because the backend never reports Modifiers, so they are still ordinary key
+        // presses here (see `clipboard::shortcuts`).
+        clipboard::shortcuts(raw);
         eframe::App::raw_input_hook(&mut self.inner, ctx, raw);
     }
 
@@ -330,6 +358,9 @@ impl eframe::App for Shell {
         eframe::App::ui(&mut self.inner, ui, frame);
         // After the app, so the picker floats above the editor.
         file_picker::draw(ui.ctx(), &self.shared);
+        // After the app: this is the one place that sees egui's CopyText before egui-winit
+        // consumes it, and puts it on the system clipboard (see `clipboard::publish`).
+        clipboard::publish(ui.ctx());
     }
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {

@@ -1,5 +1,44 @@
 # Changelog
 
+## 2026-10-30 — The system clipboard (text)
+
+| | |
+|---|---|
+| APK | `photocraft-0.17.0-arm64-v8a-20261030.apk` — sha256 in `SHA256SUMS.txt` beside the build |
+| Package | `ai.storyteller.photocraft` — versionName `0.17.0`, minSdk 26, targetSdk 35 |
+| ABI | `arm64-v8a` only |
+
+### Changed
+- **The system clipboard works for text (`src/clipboard.rs`).** Ctrl+C/X/V now produce
+  `Event::Copy`/`Cut`/`Paste` (the Android backend never reports modifiers, so `egui-winit` never
+  did), Paste reads `ClipboardManager` through JNI, and `OutputCommand::CopyText` is written back
+  with `ClipData.newPlainText`. Ctrl+Shift (Copy Merged) and Ctrl+Alt (Paste Special) still reach
+  the app. Plain text only: the image clipboard fields on `Services` stay unset.
+
+## Unreleased — re-pinned to upstream 0.17.0, Android 16 (16 KB page size)
+
+| | |
+|---|---|
+| Upstream pin | `b8c3f3aa8e2918032cadc0e042664414a03be333` (upstream `0.17.0`) — was `7a6058e` (`0.7.0`) |
+| Package | `ai.storyteller.photocraft` — versionName `0.17.0`, minSdk 26, targetSdk 35 |
+| ABI | `arm64-v8a` only |
+| ELF page alignment | `0x4000` (16 KB) — Android 16 compatible |
+
+### Changed
+- **The upstream pin moved from 0.7.0 to 0.17.0.** Both patched upstream files were re-derived
+  against the new tree; the old hunks did not apply and the patch was rebuilt from the new base.
+- **Android 16 page-size compatibility.** The native library is linked with
+  `-Wl,-z,max-page-size=16384`, so every `LOAD` segment is 16 KB aligned. Android 16 shows a
+  compatibility warning for a 4 KB-aligned app on a 16 KB-page device; this build is not one.
+
+### Fixed
+- **`Services::import` takes the whole `ImportOptions`** upstream now carries a second option (the
+  raw demosaic method), so the shell passes the options through instead of a bare SVG depth.
+- **The in-app picker answers a folder request.** Upstream added
+  `FileDialogRequest::Folder { initial_dir }`; the picker browses folders only and answers the
+  folder the user is in.
+
+
 ## v0.1.1 — 2026-10-13 (scrolling, modifiers, fonts, picker wording)
 
 | | |

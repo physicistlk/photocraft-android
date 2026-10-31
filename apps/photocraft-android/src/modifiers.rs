@@ -42,7 +42,7 @@ pub struct Tracked {
 
 impl Tracked {
     /// Fold this frame's events into the tracked state and report it back into them.
-    pub fn apply(&mut self, raw: &mut egui::RawInput) {
+    pub fn apply(&mut self, raw: &mut egui::RawInput) -> egui::Modifiers {
         let events = std::mem::take(&mut raw.events);
         let mut out = Vec::with_capacity(events.len() + 1);
         for mut event in events {
@@ -60,10 +60,11 @@ impl Tracked {
         // key events in it — the vast majority — still has to report the state it is holding.
         out.push(egui::Event::ModifiersChanged(self.reported()));
         raw.events = out;
+        self.reported()
     }
 
     /// The state as egui wants to see it.
-    fn reported(&self) -> egui::Modifiers {
+    pub fn reported(&self) -> egui::Modifiers {
         // On Windows and Linux the shortcut modifier is Ctrl, and `mac_cmd` must stay off there.
         egui::Modifiers { alt: self.alt, ctrl: self.ctrl, shift: self.shift, mac_cmd: false, command: self.ctrl }
     }

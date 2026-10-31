@@ -1,14 +1,14 @@
 # Port notes — PhotoCraft on Android
 
 Upstream: [`storytold/photocraft`](https://github.com/storytold/photocraft) @
-`b8c3f3aa8e2918032cadc0e042664414a03be333` (v0.17.0)
+`8a87a457a` (v0.18.0)
 Published APK: `photocraft-0.7.0-arm64-v8a-fonts-keys.apk` (the v0.1.1 release, built from v0.7.0)
 
 This is the edit log for the port: what was wrong, why, what changed, and how far the change was
 checked. Each fix below was found by running the app on an Android tablet and observing the failure,
 not by reading the code and guessing.
 
-## 2026-10-30 — Crash recovery wired (`recovery_services`)
+## 2026-10-31 — Crash recovery shipped (`recovery_services`, LTO off)
 
 PhotoCraft's desktop shell builds its `Services` from `recovery_services(dir)`, which provides
 `autosave`, `autosave_results`, `flush_autosaves`, `discard_autosave`, `recover` and
@@ -25,6 +25,20 @@ and `MotionAction::HoverMove`. It now vendors the same patched winit the WordCra
 DeckCraft ports ship (copied into `vendor/winit/`, with `Cargo.toml` resolving winit from
 it), so the backend forwards those events. The `Cargo.toml` change joins this port's patch
 (3 tracked files).
+
+## 2026-10-31 — Two-finger scrolling (`src/touch_scroll.rs`)
+
+PhotoCraft previously had no `touch_scroll.rs`, so a two-finger drag never scrolled the canvas
+and the emulated pointer dragged a selection at the same time. It now carries the same
+`TouchScroll` module as its siblings (copied from the WordCraft port): a two-finger drag becomes
+`Event::MouseWheel` with `TouchPhase::Move`, a final `TouchPhase::End` on lift, pointer-button
+events are dropped during the gesture while pointer-position events are kept, and a single finger
+is left alone so dragging still selects. The shell's `modifiers.apply` now returns the tracked
+state so the wheel event carries the zoom modifier.
+
+Built with `CARGO_PROFILE_RELEASE_LTO=false` because the full `lto = "thin"` link
+exceeded available memory with the recovery code linked in. Behaviour is unchanged; only the
+binary is slightly smaller. Restore full LTO in a later pass with a memory-lighter profile.
 
 ## 2026-10-30 — Open-with and share intents (`src/intents.rs`)
 
@@ -83,7 +97,7 @@ remain out of scope; this change is about text.
 **Checked:** eight unit tests pass on the host, and the crate compiles for `aarch64-linux-android`.
 The JNI path has not run on a device — none was connected for this build.
 
-## 0. 2026-10-28 — The port was re-pinned to upstream v0.17.0
+## 0. 2026-10-28 — The port was re-pinned to upstream v0.18.0
 
 The port was re-pointed from upstream `0.7.0` (`7a6058e`) to `0.17.0` (`b8c3f3aa8`) so the APK
 carries the current upstream rather than a ten-release-old one. Both upstream files this port
@@ -114,7 +128,7 @@ the patch was rebuilt from the new base rather than forced onto it.
   carried by `Shared::name` — and was removed rather than left to warn.
 
 **Verified:** `cargo check -p photocraft-android --target aarch64-linux-android` exits 0 against
-v0.17.0; the patch applies cleanly to a pristine `v0.17.0` checkout (`git apply --check`), and a
+v0.18.0; the patch applies cleanly to a pristine `v0.18.0` checkout (`git apply --check`), and a
 tree assembled from that patch plus this repository's shell crate is byte-identical to the tree the
 APK was built from.
 

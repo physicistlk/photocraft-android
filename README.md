@@ -37,7 +37,7 @@ JDK 21, and `cargo install cargo-apk`.
 ```bash
 git clone https://github.com/storytold/photocraft.git
 cd photocraft
-git fetch --depth 1 origin b8c3f3aa8e2918032cadc0e042664414a03be333
+git fetch --depth 1 origin 8a87a457a
 git checkout FETCH_HEAD                        # the exact commit this port targets
 git apply -3 /path/to/0001-photocraft-android-port.patch
 cp -r /path/to/photocraft-android apps/             # the shell crate from this repository
@@ -72,7 +72,7 @@ A tick means the check was *run*, not inferred; the wording says how far it goes
 
 | Claim | How it was checked | Result |
 |---|---|---|
-| `patches/…patch` applies to a clean checkout of the pin | fresh `git init` + `git fetch --depth 1 origin b8c3f3aa8e2918032cadc0e042664414a03be333` + `git apply --check` | ✅ applies cleanly |
+| `patches/…patch` applies to a clean checkout of the pin | fresh `git init` + `git fetch --depth 1 origin 8a87a457a` + `git apply --check` | ✅ applies cleanly |
 | The assembled tree equals the tree the APK was built from | file-by-file SHA-256 (line endings normalised) over every patched file and every file of the port crate | ✅ 17 files identical, none differing |
 | The port crate compiles for Android | `cargo check -p photocraft-android --target aarch64-linux-android`, run in a tree assembled from scratch (fresh `git fetch` of the pin, patch applied, port crate copied in) | ✅ exit 0 (host `cargo check -p photocraft` stays green after the shared-crate patch) |
 | Modifier-key synthesis (Ctrl / Shift / Alt) | `cargo test -p photocraft-android` (host, pure logic) | ✅ 14/14 pass, including the cross-frame Shift case that *is* the bug |

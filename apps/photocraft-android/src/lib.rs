@@ -54,6 +54,7 @@ use photocraft_ui_egui::{ExportSettings, PhotocraftApp, Recoverable, Services};
 
 mod clipboard;
 mod file_picker;
+mod touch_scroll;
 mod intents;
 mod modifiers;
 
@@ -116,6 +117,45 @@ fn save_file(
 ///
 /// Everything omitted here is omitted deliberately — see the crate docs. The
 /// codecs are wired identically, so opening and exporting real files works.
+type SharedRecovery = Rc<RefCell<Option<photocraft_format::RecoveryStore>>>;
+
+fn with_store<R>(store: &SharedRecovery, f: impl FnOnce(&mut photocraft_format::RecoveryStore) -> R) -> Result<R, String> {
+    let mut slot = store.try_borrow_mut().map_err(|_| "crash recovery is busy".to_string())?;
+    Ok(f(slot.as_mut().ok_or("no config directory")?))
+}
+
+fn recovery_services(dir: Option<PathBuf>) -> Services {
+    let recover_dir = dir.clone();
+    let store: SharedRecovery = Rc::new(RefCell::new(dir.map(photocraft_format::RecoveryStore::new)));
+    let (s1, s2, s4, s5) = (store.clone(), store.clone(), store.clone(), store.clone());
+    Services {
+        autosave: Some(Box::new(move |doc: &Arc<photocraft_doc::Document>, revision: u64, path: Option<&str>| {
+            with_store(&s1, |s| s.autosave_checked(doc, revision, path.map(str::to_string)))?
+        })),
+        autosave_results: Some(Box::new(move || with_store(&s4, |s| s.take_completed()).unwrap_or_default())),
+        flush_autosaves: Some(Box::new(move || with_store(&s5, photocraft_format::RecoveryStore::flush).unwrap_or_default())),
+        discard_autosave: Some(Box::new(move |id: u64| {
+            let _ = with_store(&s2, |s| s.discard(id));
+        })),
+        recover: Some(Box::new(move || {
+            let Some(dir) = recover_dir.as_ref() else { return Vec::new() };
+            photocraft_format::list_recovery(dir)
+                .into_iter()
+                .map(|e| Recoverable {
+                    key: e.info.key.clone(),
+                    name: e.info.document_name.clone(),
+                    path: e.info.original_path.clone(),
+                    load: Box::new(move || photocraft_format::recover(&e).map_err(|e| e.to_string())),
+                })
+                .collect()
+        })),
+        adopt_autosave: Some(Box::new(move |id: u64, key: &str| {
+            let _ = with_store(&store, |s| s.adopt(id, key));
+        })),
+        ..Default::default()
+    }
+}
+
 fn android_services() -> Services {
     Services {
         import: Some(Box::new(
@@ -271,6 +311,13 @@ pub fn android_main(app: winit::platform::android::activity::AndroidApp) {
         Box::new(|cc| {
             let shared = file_picker::channel();
             let mut services = android_services();
+            let recovery = recovery_services(Some(data_dir.clone()));
+            services.autosave = recovery.autosave;
+            services.autosave_results = recovery.autosave_results;
+            services.flush_autosaves = recovery.flush_autosaves;
+            services.discard_autosave = recovery.discard_autosave;
+            services.recover = recovery.recover;
+            services.adopt_autosave = recovery.adopt_autosave;
             // Without this, `ask_file` returns CANCELLED and Open/Save do nothing.
             let for_dialog = shared.clone();
             services.file_dialog = Some(Box::new(move |request, _parent, reply| {
@@ -294,7 +341,7 @@ pub fn android_main(app: winit::platform::android::activity::AndroidApp) {
             } else {
                 log::warn!("no wgpu render state; the canvas will composite on the CPU");
             }
-            Ok(Box::new(Shell { inner: app, modifiers: modifiers::Tracked::default(), pending_launch: intents::launch(), shared }))
+            Ok(Box::new(Shell { inner: app, modifiers: modifiers::Tracked::default(), touch: touch_scroll::TouchScroll::default(), pending_launch: intents::launch(), shared }))
         }),
     );
 
@@ -313,6 +360,7 @@ struct Shell {
     inner: PhotocraftApp,
     /// Modifier keys folded back into the frame's events; Android reports none (see `modifiers`).
     modifiers: modifiers::Tracked,
+    touch: touch_scroll::TouchScroll,
     pending_launch: Option<intents::LaunchIntent>,
     shared: Rc<std::cell::RefCell<file_picker::Shared>>,
 }
@@ -346,7 +394,10 @@ impl eframe::App for Shell {
                 *key = egui::Key::Escape;
             }
         }
-        self.modifiers.apply(raw);
+        let modifiers = self.modifiers.apply(raw);
+        // Then the touches: winit's Android backend has no mouse, so a two-finger drag becomes a
+        // wheel here (see `touch_scroll`).
+        self.touch.apply(raw, modifiers);
         // Then the clipboard keys: egui-winit could not turn them into Copy/Cut/Paste
         // because the backend never reports Modifiers, so they are still ordinary key
         // presses here (see `clipboard::shortcuts`).

@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-11-04 — Re-pinned to upstream 0.20.1
+
+| | |
+|---|---|
+| Upstream pin | `327c4cc82e737a3e0af7c147a477126d77525495` (upstream `0.20.1`) — was `2df9f8077` (`0.19.0`) |
+| APK | `photocraft-0.20.1-arm64-v8a-20261104.apk` — sha256 `ebd39e91073d7cd6a3c449c057d85434b53c42d6c94fd2de48ff2032b246743e` |
+| Package | `ai.storyteller.photocraft` — versionName `0.20.1`, minSdk 26, targetSdk 35 |
+| ABI | `arm64-v8a` only |
+
+### Changed
+- **The upstream pin moved from 0.19.0 to 0.20.1.** The existing port patch applied cleanly (hunk offsets shifted only); no semantic re-derivation was needed. `cargo check -p photocraft-android --target aarch64-linux-android` passes with no changes to the shell crate.
+- **Patch regenerated** against the 0.20.1 base and verified with `git apply --check` against a pristine `git archive v0.20.1` tree.
+
 ## 2026-10-30 — The system clipboard (text)
 
 | | |

@@ -1,3 +1,9 @@
+## 0.21.0 (2026-11-07)
+
+- Re-port to upstream v0.21.0 (commit efb7ebd0c).
+- Patch applied cleanly.
+- APK: photocraft-0.21.0-arm64-v8a-20261107.apk (sha256 fe6f3f3463d2f53b5b0bac4076f7b415941393490e655b95747cbd4053ba5c7d)
+
 # Changelog
 
 ## 2026-11-04 — Re-pinned to upstream 0.20.1

@@ -1,84 +1,37 @@
-diff --git a/Cargo.toml b/Cargo.toml
-index e01bcf175..0e147bc3a 100644
---- a/Cargo.toml
-+++ b/Cargo.toml
-@@ -202,4 +202,4 @@ egui_system_font_provider = { git = "https://github.com/storytold/egui.git", rev
- eframe = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
- egui_demo_lib = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
- egui_inspection = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
--winit = { git = "https://github.com/storytold/winit.git", rev = "a517b3846ee8457d84ee4975110bfda6797c44dc" }
-+winit = { path = "vendor/winit" }
-diff --git a/crates/text/src/fonts.rs b/crates/text/src/fonts.rs
-index 416ae7834..6161c147d 100644
---- a/crates/text/src/fonts.rs
-+++ b/crates/text/src/fonts.rs
-@@ -963,6 +963,19 @@ fn font_files_of(collection: &mut Collection) -> Vec<std::path::PathBuf> {
-     files
- }
+diff --git a/Cargo.lock b/Cargo.lock
+index ebb5223a0..467c9a296 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -5180,6 +5180,24 @@ dependencies = [
+  "serde_json",
+ ]
  
-+/// Extra font directories a shell registers for a platform whose fonts the scan cannot find on
-+/// its own.
-+///
-+/// Android: the app's own USB-visible `Fonts` folder, where a user drops a `.ttf` to install it —
-+/// the same folder the desktop app sets beside its preferences. One-shot (only the first call
-+/// counts) and it must be set before the first scan, so the shell does it before the window opens.
-+static EXTRA_FONT_DIRS: std::sync::OnceLock<Vec<std::path::PathBuf>> = std::sync::OnceLock::new();
++[[package]]
++name = "photocraft-android"
++version = "0.21.0"
++dependencies = [
++ "eframe",
++ "egui",
++ "jni",
++ "log",
++ "photocraft-codecs",
++ "photocraft-doc",
++ "photocraft-engine",
++ "photocraft-format",
++ "photocraft-io",
++ "photocraft-text",
++ "photocraft-ui-egui",
++ "winit",
++]
 +
-+/// Add directories to [`system_font_dirs`]. See [`EXTRA_FONT_DIRS`].
-+pub fn set_extra_font_dirs(dirs: Vec<std::path::PathBuf>) {
-+    let _ = EXTRA_FONT_DIRS.set(dirs);
-+}
-+
- #[cfg(not(target_arch = "wasm32"))]
- pub(crate) fn system_font_dirs() -> Vec<std::path::PathBuf> {
-     use std::path::PathBuf;
-@@ -995,6 +1008,20 @@ pub(crate) fn system_font_dirs() -> Vec<std::path::PathBuf> {
-             v.push(h.join(".fonts"));
-         }
-     }
-+    // Android takes the Linux branch above — `cfg!(target_os = "macos")` and `"windows"` are both
-+    // false there — and not one of those paths exists on a tablet, so the scan would find no
-+    // system fonts at all and every document set in the device's own typeface would fall back.
-+    // The system's font folders are these; missing ones are skipped as usual.
-+    if cfg!(target_os = "android") {
-+        v.push(PathBuf::from("/system/fonts"));
-+        v.push(PathBuf::from("/product/fonts"));
-+        v.push(PathBuf::from("/system_ext/fonts"));
-+        v.push(PathBuf::from("/vendor/fonts"));
-+    }
-+    // Fonts the shell registered for this platform (Android: the app's own Fonts folder).
-+    if let Some(extra) = EXTRA_FONT_DIRS.get() {
-+        v.extend(extra.iter().cloned());
-+    }
-     v
- }
- 
-diff --git a/crates/ui-egui/Cargo.toml b/crates/ui-egui/Cargo.toml
-index 326e6bf7a..20fe89029 100644
---- a/crates/ui-egui/Cargo.toml
-+++ b/crates/ui-egui/Cargo.toml
-@@ -31,7 +31,7 @@ photocraft-format = { workspace = true }
- photocraft-codecs = { workspace = true }
- egui = { workspace = true }
- egui_extras = { version = "0.37", default-features = false, features = ["svg"] }
--eframe = { workspace = true, features = ["wgpu", "accesskit", "clipboard"] }
-+eframe = { workspace = true, features = ["wgpu", "clipboard"] }
- serde = { workspace = true }
- serde_json = { workspace = true }
- log = { workspace = true }
-@@ -42,6 +42,15 @@ base64 = "0.23"
- flate2 = { workspace = true }
- web-time = { workspace = true }
- 
-+# Screen-reader support (accesskit) is desktop-only. eframe rejects the feature
-+# combination on Android — `compile_error!("`accesskit` feature is only
-+# available with `android-game-activity`")` — because on Android egui's accesskit
-+# integration goes through the GameActivity backend, while the Android port
-+# packages NativeActivity. Cargo applies features only from target tables whose
-+# cfg matches, so desktop keeps accesskit and Android drops it.
-+[target.'cfg(not(target_os = "android"))'.dependencies]
-+eframe = { workspace = true, features = ["accesskit"] }
-+
- [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
- # Floating panels open in their own OS windows on the desktop; the web keeps them in the page.
- craft-ui = { workspace = true, features = ["native-windows"] }
+ [[package]]
+ name = "photocraft-automation"
+ version = "0.21.0"
+@@ -9107,7 +9125,6 @@ checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
+ [[package]]
+ name = "winit"
+ version = "0.30.13"
+-source = "git+https://github.com/storytold/winit.git?rev=a517b3846ee8457d84ee4975110bfda6797c44dc#a517b3846ee8457d84ee4975110bfda6797c44dc"
+ dependencies = [
+  "ahash",
+  "android-activity",

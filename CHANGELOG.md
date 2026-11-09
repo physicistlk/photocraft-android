@@ -1,3 +1,12 @@
+## 0.22.0 (2026-11-09)
+
+- Re-port to upstream v0.22.0 (commit 5000240c6).
+- Patch applied cleanly; the previous canonical patch had dropped three staged hunks
+  (`Cargo.toml` winit path, `crates/text/src/fonts.rs` font dirs, `crates/ui-egui/Cargo.toml`
+  accesskit split), which were re-applied and are now included in the regenerated patch.
+- `cargo check -p photocraft-android --target aarch64-linux-android` passes with no shell changes.
+- APK: photocraft-0.22.0-arm64-v8a-20261109.apk (sha256 df24279b238b9c33c4b5701492d0ae6c36a0286ef73fbba0328902a5146ce3c2)
+
 ## 0.21.0 (2026-11-07)
 
 - Re-port to upstream v0.21.0 (commit efb7ebd0c).

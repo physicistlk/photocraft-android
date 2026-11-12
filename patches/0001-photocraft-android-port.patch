@@ -1,14 +1,14 @@
 diff --git a/Cargo.lock b/Cargo.lock
-index 2b21894da..f04332993 100644
+index 860de3aae..36838263f 100644
 --- a/Cargo.lock
 +++ b/Cargo.lock
-@@ -5382,6 +5382,24 @@ dependencies = [
+@@ -5402,6 +5402,24 @@ dependencies = [
   "serde_json",
  ]
  
 +[[package]]
 +name = "photocraft-android"
-+version = "0.22.0"
++version = "0.23.1"
 +dependencies = [
 + "eframe",
 + "egui",
@@ -26,8 +26,8 @@ index 2b21894da..f04332993 100644
 +
  [[package]]
  name = "photocraft-automation"
- version = "0.22.0"
-@@ -9413,7 +9431,6 @@ checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
+ version = "0.23.1"
+@@ -9429,7 +9447,6 @@ checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
  [[package]]
  name = "winit"
  version = "0.30.13"
@@ -36,23 +36,23 @@ index 2b21894da..f04332993 100644
   "ahash",
   "android-activity",
 diff --git a/Cargo.toml b/Cargo.toml
-index 072908bb2..2f9493982 100644
+index e54a0c59c..48885b6e7 100644
 --- a/Cargo.toml
 +++ b/Cargo.toml
-@@ -203,7 +203,7 @@ egui_system_font_provider = { git = "https://github.com/storytold/egui.git", rev
+@@ -209,7 +209,7 @@ egui_system_font_provider = { git = "https://github.com/storytold/egui.git", rev
  eframe = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
  egui_demo_lib = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
  egui_inspection = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
 -winit = { git = "https://github.com/storytold/winit.git", rev = "a517b3846ee8457d84ee4975110bfda6797c44dc" }
 +winit = { path = "vendor/winit" }
  # craft-pdf's vendored Hayro trees: consumers patch the same craft-libs revision (crates/pdf README).
- hayro = { git = "https://github.com/storytold/craft-libs", rev = "1b34eba41e62138fc2438d2734523b302840b45d" }
- hayro-syntax = { git = "https://github.com/storytold/craft-libs", rev = "1b34eba41e62138fc2438d2734523b302840b45d" }
+ hayro = { git = "https://github.com/storytold/craft-libs", rev = "6e03f65bf45181db77ba6229716e6624db9eb25b" }
+ hayro-syntax = { git = "https://github.com/storytold/craft-libs", rev = "6e03f65bf45181db77ba6229716e6624db9eb25b" }
 diff --git a/crates/text/src/fonts.rs b/crates/text/src/fonts.rs
-index 489f2eef5..47e9d33ed 100644
+index 91ba32a49..8357134ee 100644
 --- a/crates/text/src/fonts.rs
 +++ b/crates/text/src/fonts.rs
-@@ -969,6 +969,19 @@ fn font_files_of(collection: &mut Collection) -> Vec<std::path::PathBuf> {
+@@ -973,6 +973,19 @@ fn font_files_of(collection: &mut Collection) -> Vec<std::path::PathBuf> {
      files
  }
  
@@ -72,7 +72,7 @@ index 489f2eef5..47e9d33ed 100644
  #[cfg(not(target_arch = "wasm32"))]
  pub(crate) fn system_font_dirs() -> Vec<std::path::PathBuf> {
      use std::path::PathBuf;
-@@ -1001,6 +1014,20 @@ pub(crate) fn system_font_dirs() -> Vec<std::path::PathBuf> {
+@@ -1005,6 +1018,20 @@ pub(crate) fn system_font_dirs() -> Vec<std::path::PathBuf> {
              v.push(h.join(".fonts"));
          }
      }
@@ -94,10 +94,10 @@ index 489f2eef5..47e9d33ed 100644
  }
  
 diff --git a/crates/ui-egui/Cargo.toml b/crates/ui-egui/Cargo.toml
-index e0111e9ca..8c9b5702b 100644
+index 10b1838ea..9ae18eec6 100644
 --- a/crates/ui-egui/Cargo.toml
 +++ b/crates/ui-egui/Cargo.toml
-@@ -34,7 +34,7 @@ photocraft-codecs = { workspace = true }
+@@ -36,7 +36,7 @@ photocraft-codecs = { workspace = true }
  photocraft-psd = { workspace = true }
  egui = { workspace = true }
  egui_extras = { version = "0.37", default-features = false, features = ["svg"] }
@@ -106,7 +106,7 @@ index e0111e9ca..8c9b5702b 100644
  serde = { workspace = true }
  serde_json = { workspace = true }
  log = { workspace = true }
-@@ -48,6 +48,15 @@ base64 = "0.23"
+@@ -50,6 +50,15 @@ base64 = "0.23"
  flate2 = { workspace = true }
  web-time = { workspace = true }
  

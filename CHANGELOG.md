@@ -1,3 +1,14 @@
+## 0.23.1 (2026-11-12)
+
+- Re-port to upstream v0.23.1 (commit 45066c482), which includes the 0.23.0 major bump plus the
+  0.23.1 patch.
+- The shipped 4-file canonical patch applied cleanly to v0.23.1 — all hunks present (no missing
+  staged hunks this round): `Cargo.toml` winit `vendor/winit` path, `crates/text/src/fonts.rs`
+  `set_extra_font_dirs` + Android font dirs, `crates/ui-egui/Cargo.toml` accesskit split, and the
+  `Cargo.lock` entry. No hand re-ports; no changes to the shell crate.
+- `cargo check -p photocraft-android --target aarch64-linux-android` passes (warnings only).
+- APK: photocraft-0.23.1-arm64-v8a-20261112.apk (sha256 2c4eff576f9073970d6198ff9e3044047b1e1be9e5c90136d22f55b9f2564825)
+
 ## 0.22.0 (2026-11-09)
 
 - Re-port to upstream v0.22.0 (commit 5000240c6).

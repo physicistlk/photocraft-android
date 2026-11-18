@@ -8,8 +8,8 @@ and egui interface, packaged as a NativeActivity APK for sideloading on arm64 de
 | Upstream project | [`storytold/photocraft`](https://github.com/storytold/photocraft) — Apache-2.0 OR MIT |
 | Pinned commit | `45066c482` (upstream version `0.23.1`) |
 | Android package | `ai.storyteller.photocraft` |
-| Published APK | `photocraft-0.23.1-arm64-v8a-20261112.apk` — 39 MB, arm64-v8a, signed (2026-11-12) |
-| APK sha256 | `2c4eff576f9073970d6198ff9e3044047b1e1be9e5c90136d22f55b9f2564825` |
+| Published APK | `photocraft-0.23.1-arm64-v8a-20261118.apk` — 39 MB, arm64-v8a, signed (2026-11-18) |
+| APK sha256 | `994260e3837569448a6532ed4ab0ed0cc56f4c121f2cd9a1529e43beb401609b` |
 | Upstream files changed | 4 files — see [`patches/`](patches/) |
 | New port crate | `apps/photocraft-android/` — 2045 lines of Rust plus resources |
 

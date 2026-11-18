@@ -1,3 +1,21 @@
+## 0.23.1 (2026-11-18) — shared winit fix: physical mouse right button
+
+- **Physical mouse: right button is a real secondary click; long-press-to-context-menu no longer
+  applies to a mouse.** `vendor/winit/src/platform_impl/android/mod.rs` now reports
+  `CursorMoved` + `MouseInput` for a real mouse/trackpad instead of flattening every motion event
+  into a `Touch`, so egui sees a pointer device: the right button arrives as a secondary click and
+  its `any_touches() && is_long_press()` heuristic stops firing for a mouse. Buttons are diffed from
+  the reported button state so Android's duplicate `ACTION_DOWN/UP` + `ACTION_BUTTON_PRESS/RELEASE`
+  pairs change each button exactly once; hover moves are forwarded too. Finger input is untouched,
+  and a device that reports no button state keeps the old touch path.
+- Same upstream version as the 2026-11-12 round (v0.23.1, commit 45066c482) — no upstream update.
+- The 4-file canonical patch applied cleanly to a fresh `git reset --hard v0.23.1` tree: all hunks
+  present (`Cargo.toml` winit `vendor/winit` path, `crates/text/src/fonts.rs` `set_extra_font_dirs`,
+  `crates/ui-egui/Cargo.toml` accesskit target split, `Cargo.lock`). No hand re-ports.
+- `cargo check -p photocraft-android --target aarch64-linux-android` passes (warnings only);
+  `cargo apk build --release` compiled `winit v0.30.13 (/…/photocraft-build-new/vendor/winit)`.
+- APK: photocraft-0.23.1-arm64-v8a-20261118.apk (sha256 994260e3837569448a6532ed4ab0ed0cc56f4c121f2cd9a1529e43beb401609b)
+
 ## 0.23.1 (2026-11-12)
 
 - Re-port to upstream v0.23.1 (commit 45066c482), which includes the 0.23.0 major bump plus the
